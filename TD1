@@ -1,0 +1,131 @@
+# -----------------------------------------------------------------------------
+# Introduction – Mini Space Invaders (structure Pygame + Sprites)
+#
+# Pygame en bref
+# --------------
+# Pygame est une bibliothèque pour créer des jeux 2D en Python.
+# Elle fournit :
+# - des "Surfaces" (images, textures, fond) sur lesquelles on dessine ;
+# - des "Rect" (rectangles de collision) pour positionner/détecter les contacts ;
+# - une boucle de jeu (game loop) organisée en 3 étapes : événements -> update -> draw ;
+# - des "Sprites" et "Groupes de sprites" pour gérer proprement des objets de jeu.
+#
+# Glossaire rapide
+# ----------------
+# - Surface : zone graphique (ex. l'image d'un joueur). On peut la remplir d'une couleur
+#   ou y blitter d'autres images. Chaque Surface peut fournir un Rect via get_rect().
+# - Rect : boîte englobante (x, y, w, h) servant au positionnement et aux collisions.
+# - Sprite : objet de jeu standardisé (hérite de pygame.sprite.Sprite) qui possède
+#   généralement un couple (image, rect) et une méthode update() appelée à chaque frame.
+# - Group : collection de sprites ; permet d’appeler group.update(...) et group.draw(screen).
+#
+# Architecture du code
+# --------------------
+# 1) Constantes globales : dimensions de la fenêtre, FPS, couleurs.
+# 2) Player (Sprite) :
+#    - crée son image (Surface) et son rect (position/tailles),
+#    - se déplace horizontalement en fonction des touches gauche/droite,
+#    - reste dans les bornes de l’écran (clamping via rect.left/right).
+# 3) Game :
+#    - initialise Pygame, la fenêtre, l’horloge (pour stabiliser le FPS),
+#    - crée un groupe all_sprites et y ajoute le joueur,
+#    - boucle principale :
+#        a) handle_events() : lit la file d’événements (fermeture fenêtre, etc.)
+#        b) update() : récupère l’état du clavier et met à jour les sprites
+#        c) draw() : efface l’écran, dessine les sprites, puis affiche (flip)
+#    - sortie propre : pygame.quit() puis sys.exit()
+#
+# Boucle de jeu (schéma)
+# ----------------------
+# while running:
+#     clock.tick(FPS)          # cadence fixe (limite la vitesse)
+#     handle_events()          # clavier/souris/fermeture
+#     update()                 # logique et mouvements
+#     draw()                   # rendu à l’écran
+#
+# Points d’extension possibles
+# ----------------------------
+# - Ajouter des tirs (projectiles) : un Sprite "Bullet" + gestion de tir au clavier.
+# - Ajouter des ennemis : Sprite "Enemy", patterns de déplacement, collisions.
+# - Gérer les collisions : pygame.sprite.spritecollide / groupcollide.
+# - UI/HUD : score, vies, texte via pygame.font.Font.
+#
+# Exécution
+# ---------
+# - Installer : `pip install pygame`
+# - Lancer    : `python ton_fichier.py`
+#
+# Remarque
+# --------
+# Le bloc `if __name__ == "__main__":` garantit que Game().run() ne s’exécute
+# que si le fichier est lancé directement (et pas importé comme module).
+# -----------------------------------------------------------------------------
+
+import pygame                     # Importe la bibliothèque Pygame pour le jeu 2D.
+import sys                        # Importe sys pour pouvoir quitter proprement l'application.
+
+# --- Constantes globales (simple) ---
+WIDTH, HEIGHT = 800, 600          # Dimensions de la fenêtre de jeu (largeur, hauteur).
+FPS = 60                          # Nombre d'images par seconde visé (fréquence de rafraîchissement).
+WHITE = (255, 255, 255)           # Définition de la couleur blanc en RGB (non utilisée ici).
+BLACK = (0, 0, 0)                 # Définition de la couleur noir en RGB (pour le fond).
+GREEN = (80, 220, 100)            # Définition d’un vert pour le joueur.
+
+class Player(pygame.sprite.Sprite):      # Déclare une classe Player héritant de Sprite (système d’objets Pygame).
+    def __init__(self, x, y, speed=5):   # Constructeur : position initiale (x,y) et vitesse horizontale.
+        super().__init__()               # Initialise la partie Sprite de la classe parent.
+        self.image = pygame.Surface((60, 20))            # Crée une surface rectangulaire (le visuel du joueur) de 60x20 px.
+        self.image.fill(GREEN)                           # Remplit la surface avec la couleur verte.
+        self.rect = self.image.get_rect(midbottom=(x, y))# Récupère un rect lié à l’image et place son milieu-bas en (x,y).
+        self.speed = speed                               # Stocke la vitesse de déplacement horizontale.
+
+    def update(self, keys):                              # Méthode appelée à chaque frame pour mettre à jour l’état.
+        if keys[pygame.K_LEFT]:                          # Si la touche flèche gauche est pressée…
+            self.rect.x -= self.speed                    # …déplace le joueur vers la gauche.
+        if keys[pygame.K_RIGHT]:                         # Si la touche flèche droite est pressée…
+            self.rect.x += self.speed                    # …déplace le joueur vers la droite.
+        # bornes
+        self.rect.left = max(self.rect.left, 0)          # Empêche de sortir par la gauche : min gauche = 0.
+        self.rect.right = min(self.rect.right, WIDTH)    # Empêche de sortir par la droite : max droit = WIDTH.
+
+class Game:                                              # Classe englobant la boucle de jeu et les ressources.
+    def __init__(self):                                  # Constructeur du jeu.
+        pygame.init()                                    # Initialise tous les modules Pygame.
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT)) # Crée la fenêtre d’affichage de taille (WIDTH, HEIGHT).
+        pygame.display.set_caption("Space Invaders (simple)")  # Définit le titre de la fenêtre.
+        self.clock = pygame.time.Clock()                 # Crée une horloge pour contrôler le FPS.
+
+        # groupes
+        self.all_sprites = pygame.sprite.Group()         # Crée un groupe pour gérer et dessiner tous les sprites.
+
+        # joueur
+        self.player = Player(WIDTH//2, HEIGHT-30)        # Instancie le joueur centré en bas (30 px au-dessus du bas).
+        self.all_sprites.add(self.player)                # Ajoute le joueur au groupe de sprites.
+
+        self.running = True                              # Drapeau contrôlant la boucle principale du jeu.
+
+    def run(self):                                       # Méthode qui lance la boucle principale du jeu.
+        while self.running:                              # Tant que le jeu est en cours d’exécution…
+            self.clock.tick(FPS)                         # Attend pour respecter le FPS cible (limite la boucle).
+            self.handle_events()                         # Gère les événements (clavier, fermeture fenêtre, etc.).
+            self.update()                                # Met à jour la logique des objets (position du joueur).
+            self.draw()                                  # Dessine le frame courant à l’écran.
+        pygame.quit()                                    # Quitte proprement Pygame (libère les ressources).
+        sys.exit()                                       # Termine le programme Python.TD
+
+    def handle_events(self):                             # Gère la file d’événements Pygame.
+        for event in pygame.event.get():                 # Parcourt tous les événements en attente.
+            if event.type == pygame.QUIT:                # Si l’utilisateur clique sur la croix de la fenêtre…
+                self.running = False                     # …on arrête la boucle de jeu.
+
+    def update(self):                                    # Met à jour la logique de tous les sprites.
+        keys = pygame.key.get_pressed()                  # Récupère l’état (pressé/non) de toutes les touches.
+        self.all_sprites.update(keys)                    # Appelle update(keys) sur chaque sprite du groupe.
+
+    def draw(self):                                      # Dessine la scène.
+        self.screen.fill(BLACK)                          # Remplit l’écran avec du noir (efface l’ancienne image).
+        self.all_sprites.draw(self.screen)               # Dessine tous les sprites du groupe sur l’écran.
+        pygame.display.flip()                            # Échange les buffers : affiche l’image dessinée.
+
+if __name__ == "__main__":                               # Point d’entrée si le fichier est exécuté directement.
+    Game().run()                                         # Crée une instance de Game et lance la boucle principale.
