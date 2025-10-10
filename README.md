@@ -1,159 +1,357 @@
-# Pygame – Mini Space Invaders : Guide détaillé
+# Pygame – Mini Space Invaders : Guide détaillé (version étendue)
 
-> **Objectif** : comprendre *en profondeur* comment fonctionne Pygame (Surfaces, Rect, boucle de jeu, Sprites/Groupes, horloge, évènements), puis décortiquer pas à pas le code fourni, et savoir comment l’étendre proprement.
+> **Objectif** : comprendre *en profondeur* Pygame (Surfaces, Rect, boucle de jeu, Sprites/Groupes, horloge, évènements), **puis** décortiquer pas à pas le code étendu ci‑dessous (tir, ennemis, collisions, images, fond, cooldown…), et savoir comment l’étendre proprement.
 
 ---
 
 ## 1) Rappels express sur Pygame
 
-Pygame est un *wrapper* autour de **SDL** (Simple DirectMedia Layer). Il fournit :
-
-* **Surfaces** : zones de pixels en mémoire (images, textures, écran). On *dessine* dessus et on les **blitte** (copie rapide de pixels) vers d’autres surfaces.
-* **Rect** : rectangles utilitaires pour positionnement, tailles et **collisions**. Un `Rect` n’a pas de pixels ; c’est une boîte englobante attachée à une Surface via `surface.get_rect()`.
-* **Événements** : clavier, souris, fermeture fenêtre, etc., mis en file par SDL et lus avec `pygame.event.get()`.
-* **Boucle de jeu** : itération continue « *input → update → draw* » cadencée par `pygame.time.Clock()`.
-* **Sprites / Groupes** : canevas OO pour gérer des objets de jeu (image + rect + `update()`). Les groupes savent `update()` et `draw()` *en lot*.
-
-### Coordonnées & unités
-
-* Origine **(0,0)** en **haut-gauche**. Axe **x** va à droite, **y** va vers le bas.
-* Les positions et tailles sont en **pixels**.
-* Le temps est géré en **ms** via l’horloge (`clock.tick(FPS)`, `get_time()`, `get_fps()`).
-
-### Pipeline de rendu (simplifié)
-
-1. **Effacer** l’écran (souvent `screen.fill(couleur)`).
-2. **Dessiner** (blit) toutes les images sur `screen` dans le bon ordre.
-3. **Présenter** à l’utilisateur : `pygame.display.flip()` (ou `update()`).
-
-### Double buffering
-
-* Pygame/SDL dessinent sur un **back buffer** puis l’échangent avec l’**écran**. D’où l’obligation d’effacer/redessiner **à chaque frame**.
+*Identique à ta version d’origine : Surfaces, Rect, Événements, Boucle de jeu, Sprites/Groupes, coordonnées, pipeline de rendu, double buffering, etc.*
 
 ---
 
 ## 2) Surfaces : ce que c’est *vraiment*
 
-* Une **Surface** est un tableau de pixels + un *format* (profondeur couleur, canal alpha). Exemples : `pygame.Surface((w,h))`, `pygame.image.load(...)`.
-* `convert()` / `convert_alpha()` :
+*Idem +* deux points pratiques utilisés dans le code **étendu** :
 
-  * `convert()` adapte le format de la surface au format d’affichage pour **accélérer** les blits (sans alpha).
-  * `convert_alpha()` conserve l’**alpha** (transparence par pixel).
-* **Alpha global** vs **alpha par pixel** :
-
-  * Global : `surface.set_alpha(128)` → semi‑transparent partout.
-  * Par pixel : image PNG avec canal alpha + `convert_alpha()`.
-
-**Dans ton code** : le joueur est un cercle vert dessiné sur une Surface **avec alpha** (`pygame.SRCALPHA`).
+* `convert()` **sans** alpha pour accélérer les blits (adaptation au format d’affichage).
+* `set_colorkey(WHITE)` pour rendre **transparent** un fond d’image uni (utile avec des JPEGs). Alternative : PNG + `convert_alpha()` pour une vraie transparence par pixel.
 
 ---
 
-## 3) Rect : boîte outil pour positions & collisions
+## 3) Rect : positions & collisions
 
-* `Rect` stocke `(x, y, w, h)` et offre de **nombreux attributs** : `left/right/top/bottom/center`, etc., plus des méthodes (`move`, `inflate`, `colliderect`, `clamp_ip`, …).
-* Un `Rect` **ne dessine rien**. Il sert à :
-
-  * positionner la `Surface` associée (via `blit(image, rect)`) ;
-  * tester des **collisions** (`rect.colliderect(autre_rect)`).
-
-**Dans ton code** : `self.rect = self.image.get_rect(center=(x, y))`, puis on modifie `rect.x`, `rect.left/right` pour le mouvement et le *clamping*.
+*Idem*, avec rappel : on positionne via `image.get_rect(...)`, puis on modifie `rect.x/y` ou des alias (`left/right/top/bottom/center`). Les collisions AABB se font via les `Rect` **ou** via les helpers des **Groupes** (cf. §7.4).
 
 ---
 
-## 4) Événements, entrées et états de touches
+## 4) Événements & entrées
 
-Il existe deux façons complémentaires d’obtenir le clavier :
+Deux styles complémentaires :
 
-1. **Événements discrets** via la queue :
+1. **Événements discrets** (ex : appui ponctuel sur une touche pour *tirer*).
+2. **État continu** (ex : flèches gauche/droite pour *déplacer* le joueur).
 
-   ```python
-   for event in pygame.event.get():
-       if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-           tirer()
-   ```
+Dans le code étendu :
 
-   Utile pour des actions **instantanées** (tir, pause, menu…).
-
-2. **État continu** du clavier via `pygame.key.get_pressed()`: tableau booléen indexé par les **scancodes**.
-
-   ```python
-   keys = pygame.key.get_pressed()
-   if keys[pygame.K_LEFT]: rect.x -= speed
-   ```
-
-   Parfait pour des **mouvements continus**.
-
-**Dans ton code** : `handle_events()` lit les événements (fermeture). `update()` lit l’état du clavier pour déplacer le joueur.
+* Le tir est déclenché sur **KEYDOWN** de la touche **A** (`pygame.K_a`).
+* Le déplacement latéral lit l’état du clavier dans `update(keys)` du joueur.
 
 ---
 
-## 5) Boucle de jeu & timing (fixe vs variable)
+## 5) Boucle de jeu & timing
 
-* `clock.tick(FPS)` limite la vitesse de la boucle et retourne le **delta temps** écoulé *depuis la frame précédente* (en ms via `clock.get_time()`).
-* Deux approches :
-
-  * **Timestep fixe** (comme ici) : on suppose ~`1/FPS` constant. Simple mais la vitesse dépend un peu de la machine. OK pour jeux simples.
-  * **Timestep variable** : on multiplie tous les déplacements par `dt` (en secondes). Plus robuste : `position += vitesse * dt`.
-
-**Conseil** : si tu rajoutes de la physique, utilise `dt = clock.get_time() / 1000.0` et rends tes vitesses en *pixels/seconde*.
+* `clock.tick(FPS)` pour limiter/mesurer la cadence.
+* Si tu ajoutes de la physique/mouvements lissés : préfère un **timestep variable** `dt = clock.get_time()/1000.0` et exprime les vitesses en px/s.
 
 ---
 
-## 6) Sprites & Groupes : architecture orientée objets
+## 6) Sprites & Groupes : architecture
 
-* **Sprite** = classe dérivante de `pygame.sprite.Sprite` avec typiquement `self.image` + `self.rect` + `update()`.
-* **Group** = conteneur qui sait **mettre à jour** et **dessiner** tous ses sprites :
+Le code étendu introduit **trois types** de sprites :
 
-  ```python
-  all_sprites = pygame.sprite.Group()
-  all_sprites.add(player, enemy, bullet)
-  all_sprites.update(args)
-  all_sprites.draw(screen)
-  ```
-* **Collisions** :
+* `Player` (le tireur)
+* `Enemy` (les cibles)
+* `Bullet` (les projectiles)
 
-  * `pygame.sprite.spritecollide(sprite, group, dokill=False, collided=None)`
-  * `pygame.sprite.groupcollide(group1, group2, dokill1, dokill2, collided=None)`
+Et **trois groupes** dédiés :
 
-**Dans ton code** : `Player` est un Sprite minimal ; `Game` crée `all_sprites` et appelle `update/draw` dessus.
+* `all_sprites` : *tout ce qui s’affiche* (ordre de dessin géré par le groupe).
+* `enemies` : pour tester les collisions avec les balles.
+* `bullets` : pour mettre à jour/retirer les projectiles.
+
+> Astuce perf : On **réutilise** la même `Surface` d’ennemi pour tous les `Enemy` (passée au constructeur). Si un ennemi doit être visuellement différent, fais un `.copy()` avant modification.
 
 ---
 
-## 7) Lecture pas à pas de ton code
+## 7) Lecture pas à pas du **code étendu**
 
-### 7.1 Constantes et couleurs
+### 7.1 Constantes & couleurs
 
-* `WIDTH, HEIGHT = 800, 600`, `FPS = 60` : taille fenêtre, cadence visée.
-* Couleurs RGB : `WHITE`, `BLACK`, `GREEN`.
+```python
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (80, 220, 100)
+RED   = (255, 0, 0)
+```
 
-### 7.2 `class Player(Sprite)`
+* Ajout de **RED** au besoin (indicateurs, débogage, etc.).
 
-* Crée une **Surface alpha** de diamètre `2*radius`.
-* Dessine un **cercle** vert : `pygame.draw.circle(self.image, GREEN, (radius, radius), radius)`.
-* Construit `self.rect` centré en `(x, y)` et stocke `speed`.
-* `update(keys)` :
+### 7.2 `class Bullet(Sprite)` – projectiles ascendants
 
-  * déplace `rect.x` selon `K_LEFT` / `K_RIGHT` ;
-  * **clamp** dans l’écran via `rect.left/right`.
+```python
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, speed=-8):
+        super().__init__()
+        self.image = pygame.Surface((4, 20))
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect(midbottom=(x, y))
+        self.speed = speed
 
-### 7.3 `class Game`
+    def update(self, *_):
+        self.rect.y += self.speed
+        if self.rect.bottom < 0:
+            self.kill()
+```
 
-* `__init__` :
+* **Taille** simple (4×20), **couleur** blanche.
+* **Vitesse négative** ⇒ la balle **monte** (coordonnée `y` diminue).
+* Sortie du haut d’écran ⇒ `kill()` (retire du groupe → GC par Pygame).
+* `update(self, *_)` accepte des args en plus (compat). Les groupes appellent `update(keys)` pour tous les sprites ; ceux qui n’utilisent pas `keys` peuvent l’ignorer.
 
-  * `pygame.init()` → initialise tous les sous‑modules ;
-  * `set_mode((WIDTH, HEIGHT))` → crée la fenêtre ;
-  * `Clock()` → horloge ;
-  * `Group()` → `all_sprites` ;
-  * crée le **joueur** et l’ajoute au groupe ;
-  * `self.running = True` pour la boucle.
-* `run()` (la boucle) :
+### 7.3 `class Enemy(Sprite)` – cibles
 
-  1. `clock.tick(FPS)`
-  2. `handle_events()` → lit la queue (quitter)
-  3. `update()` → lit l’état du clavier + `all_sprites.update(keys)`
-  4. `draw()` → `fill(BLACK)` + `all_sprites.draw(screen)` + `display.flip()`
-  5. **Sortie propre** : `pygame.quit()` puis `sys.exit()`
+```python
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_surface):
+        super().__init__()
+        self.image = image_surface  # réutilisée pour tous
+        self.rect = self.image.get_rect(topleft=(x, y))
+```
+
+* Construction **rapide** à partir d’une `Surface` préparée.
+
+### 7.4 `class Player(Sprite)` – tireur, déplacement & cooldown
+
+```python
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_surface, speed=5):
+        super().__init__()
+        self.image = image_surface
+        self.rect = self.image.get_rect(midbottom=(x, y))
+        self.speed = speed
+        self.shoot_cooldown = 250  # ms
+        self.last_shot = 0
+
+    def update(self, keys):
+        if keys[pygame.K_LEFT]:  self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT]: self.rect.x += self.speed
+        # Clamping dans l’écran
+        self.rect.left  = max(self.rect.left, 0)
+        self.rect.right = min(self.rect.right, WIDTH)
+
+    def can_shoot(self):
+        return pygame.time.get_ticks() - self.last_shot >= self.shoot_cooldown
+
+    def shoot(self, bullets_group, all_sprites_group):
+        if self.can_shoot():
+            bullet = Bullet(self.rect.centerx, self.rect.top)
+            bullets_group.add(bullet)
+            all_sprites_group.add(bullet)
+            self.last_shot = pygame.time.get_ticks()
+```
+
+* **Cooldown** (250 ms) géré via `pygame.time.get_ticks()` ⇒ empêche le *spam*.
+* `shoot()` instancie une `Bullet`, l’ajoute aux groupes adéquats, et mémorise l’horodatage.
+
+### 7.5 Chargement des **images** (fond, joueur, ennemi)
+
+```python
+# Fond
+bg_raw = pygame.image.load("…/Fond.jpg").convert()   # pas d’alpha
+background = pygame.transform.smoothscale(bg_raw, (WIDTH, HEIGHT))
+
+# Joueur (fond blanc rendu transparent)
+player_raw = pygame.image.load("…/PLayer.jpg").convert()
+player_raw.set_colorkey(WHITE)
+player_img = pygame.transform.smoothscale(player_raw, (60, 60))
+
+# Ennemi
+enemy_raw = pygame.image.load("…/vaisseau.jpg").convert()
+enemy_img = pygame.transform.smoothscale(enemy_raw, (40, 25))
+```
+
+* **`convert()`** : format d’affichage (perf), pas de canal alpha ⇒ parfait pour JPEG/fonds opaques.
+* **Transparence** joueur : `set_colorkey(WHITE)` supprime le blanc *uniforme*. Pour un détourage plus propre, préfère un **PNG** + `convert_alpha()`.
+* **Redimensionnement** avec `smoothscale` pour limiter l’aliasing.
+* **Chemins** : privilégie des **chemins relatifs** + `os.path.join` pour la portabilité (Windows/macOS/Linux) et évite les chemins absolus spécifiques à une machine.
+
+### 7.6 Initialisation des groupes & placement
+
+```python
+self.all_sprites = pygame.sprite.Group()
+self.bullets    = pygame.sprite.Group()
+self.enemies    = pygame.sprite.Group()
+
+self.player = Player(WIDTH//2, HEIGHT-30, player_img)
+self.all_sprites.add(self.player)
+
+# Deux rangées d’ennemis, espacées régulièrement
+for i in range(9):
+    e = Enemy(60 + i*80, 80, enemy_img)
+    h = Enemy(60 + i*80, 20, enemy_img)
+    self.enemies.add(e, h)
+    self.all_sprites.add(e, h)
+```
+
+* Simple **grille** d’ennemis (2 rangées × 9 colonnes).
+* Tous les sprites sont **dessinés** par `all_sprites` (cf. §7.8).
+
+### 7.7 Gestion des événements
+
+```python
+for event in pygame.event.get():
+    if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
+        self.player.shoot(self.bullets, self.all_sprites)
+    if event.type == pygame.QUIT:
+        self.running = False
+```
+
+* Le tir se fait sur **`K_a`**. Change facilement la touche (ex.: `K_SPACE`).
+* `QUIT` met fin à la boucle proprement.
+
+### 7.8 Update & **collisions** `Group` vs `Group`
+
+```python
+keys = pygame.key.get_pressed()
+self.all_sprites.update(keys)
+
+hits = pygame.sprite.groupcollide(self.enemies, self.bullets, True, True)
+if hits:
+    print("touché :", len(hits))
+```
+
+* `update(keys)` est appelé **pour tous** les sprites ; seuls ceux qui utilisent `keys` s’en servent.
+* `groupcollide(G1, G2, kill1, kill2)` supprime ici **l’ennemi** et la **balle** lors d’un impact (AABB par défaut).
+
+  * Besoin d’une hitbox plus fine (cercle/masque) ? Regarde `collide_mask` avec des **mask** de pixels.
+
+### 7.9 Dessin : **fond** puis sprites
+
+```python
+self.screen.blit(self.background, (0, 0))
+self.all_sprites.draw(self.screen)
+pygame.display.flip()
+```
+
+* Toujours dessiner le **fond en premier**, puis les **sprites** dans l’ordre du groupe.
+* `flip()` présente la frame (double‑buffering SDL).
 
 ---
 
 
+## 8) Check‑list débogage
+
+* Fenêtre noire ? Vérifie l’ordre `blit(background)` **avant** `draw()` + `flip()`.
+* Pas de transparence ? Confonds‑tu `convert()` (pas d’alpha) et `convert_alpha()` / `set_colorkey()` ?
+* Balle immobile ? Signe de `speed` ou oubli de `add()` dans les groupes.
+* Collisions muettes ? Vérifie que `enemies` et `bullets` contiennent bien des sprites actifs et que `groupcollide(..., True, True)` n’est pas inversé.
+
+---
+
+## 9) Code exécutable minimal (étendu)
+
+> *Version compacte reprenant les points ci‑dessus, à adapter en chemins relatifs :*
+
+```python
+import pygame, sys
+from pathlib import Path
+
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+WHITE = (255,255,255)
+BLACK = (0,0,0)
+GREEN = (80,220,100)
+
+ASSETS = Path(__file__).parent/"assets"
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, speed=-8):
+        super().__init__()
+        self.image = pygame.Surface((4,20))
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect(midbottom=(x,y))
+        self.speed = speed
+    def update(self, *_):
+        self.rect.y += self.speed
+        if self.rect.bottom < 0:
+            self.kill()
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_surface):
+        super().__init__()
+        self.image = image_surface
+        self.rect = self.image.get_rect(topleft=(x,y))
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_surface, speed=5):
+        super().__init__()
+        self.image = image_surface
+        self.rect = self.image.get_rect(midbottom=(x,y))
+        self.speed = speed
+        self.shoot_cooldown = 250
+        self.last_shot = 0
+    def update(self, keys):
+        if keys[pygame.K_LEFT]:  self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT]: self.rect.x += self.speed
+        self.rect.left  = max(self.rect.left, 0)
+        self.rect.right = min(self.rect.right, WIDTH)
+    def can_shoot(self):
+        return pygame.time.get_ticks() - self.last_shot >= self.shoot_cooldown
+    def shoot(self, bullets_group, all_sprites_group):
+        if self.can_shoot():
+            b = Bullet(self.rect.centerx, self.rect.top)
+            bullets_group.add(b); all_sprites_group.add(b)
+            self.last_shot = pygame.time.get_ticks()
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Space Invaders (simple)")
+        self.clock = pygame.time.Clock()
+
+        self.all_sprites = pygame.sprite.Group()
+        self.bullets    = pygame.sprite.Group()
+        self.enemies    = pygame.sprite.Group()
+
+        bg_raw = pygame.image.load(ASSETS/"Fond.jpg").convert()
+        self.background = pygame.transform.smoothscale(bg_raw, (WIDTH, HEIGHT))
+
+        player_raw = pygame.image.load(ASSETS/"PLayer.jpg").convert()
+        player_raw.set_colorkey(WHITE)
+        self.player_img = pygame.transform.smoothscale(player_raw, (60,60))
+
+        enemy_raw = pygame.image.load(ASSETS/"vaisseau.jpg").convert()
+        self.enemy_img = pygame.transform.smoothscale(enemy_raw, (40,25))
+
+        self.player = Player(WIDTH//2, HEIGHT-30, self.player_img)
+        self.all_sprites.add(self.player)
+
+        for i in range(9):
+            e = Enemy(60+i*80, 80, self.enemy_img)
+            h = Enemy(60+i*80, 20, self.enemy_img)
+            self.enemies.add(e,h); self.all_sprites.add(e,h)
+
+        self.running = True
+
+    def run(self):
+        while self.running:
+            self.clock.tick(FPS)
+            self.handle_events(); self.update(); self.draw()
+        pygame.quit(); sys.exit()
+
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_a:
+                self.player.shoot(self.bullets, self.all_sprites)
+            if event.type == pygame.QUIT:
+                self.running = False
+
+    def update(self):
+        keys = pygame.key.get_pressed()
+        self.all_sprites.update(keys)
+        pygame.sprite.groupcollide(self.enemies, self.bullets, True, True)
+
+    def draw(self):
+        self.screen.blit(self.background, (0,0))
+        self.all_sprites.draw(self.screen)
+        pygame.display.flip()
+
+if __name__ == "__main__":
+    Game().run()
+```
+
+---
