@@ -2,7 +2,7 @@
 
 # 🎯 Modalités d’évaluation
 
-- 🗓️ **Date limite de rendu** : **18/11/2025 à 00h00 (dernier délai)**  
+- 🗓️ **Date limite de rendu** : **mardi 18/11/2025  (dernier délai)**  
 - 📦 **Format attendu** : un **dossier compressé (.zip)** nommé **Prenom.Nom.zip**  
 - 📧 **Envoi du projet** : le dossier `.zip` doit être envoyé **par mail** à l’adresse suivante :  
   👉 **louis.mougenot@edu.univ-fcomte.fr**
