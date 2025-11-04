@@ -4,13 +4,15 @@
 
 - 🗓️ **Date limite de rendu** : **18/11/2025 à 00h00 (dernier délai)**  
 - 📦 **Format attendu** : un **dossier compressé (.zip)** nommé **Prenom.Nom.zip**  
-- 📁 **Contenu du dossier** :
+- 📧 **Envoi du projet** : le dossier `.zip` doit être envoyé **par mail** à l’adresse suivante :  
+  👉 **louis.mougenot@edu.univ-fcomte.fr**
+- 📁 **Contenu obligatoire du dossier** :
   1. Un **seul fichier Python** contenant le jeu complet et **commenté** (`.py`)
-  2. Un dossier **`assets/`** avec toutes les **images** nécessaires au jeu
-  3. Un **fichier de documentation** (format .pdf) décrivant :
+  2. Un dossier **`assets/`** contenant **toutes les images** nécessaires au jeu
+  3. Un **fichier de documentation** (format libre : `.md`, `.pdf` ou `.txt`) détaillant :
      - Le **prompt** utilisé pour demander de l’aide à l’IA  
      - Les **extraits de code** générés ou inspirés par l’IA  
-     - Une **explication** claire de **comment** ces éléments ont été **intégrés et adaptés** dans le code final
+     - Une **explication claire** de **comment** ces éléments ont été **intégrés et adaptés** dans le code final
 
 > ⚠️ Le dossier doit être complet et exécutable tel quel.  
 > L’absence d’un des éléments ou une structure différente entraînera une pénalité.
