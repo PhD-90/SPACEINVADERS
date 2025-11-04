@@ -1,6 +1,34 @@
-# Pygame – Mini Space Invaders : Guide détaillé (version étendue)
+# Pygame – Mini Space Invaders
 
-> **Objectif** : comprendre *en profondeur* Pygame (Surfaces, Rect, boucle de jeu, Sprites/Groupes, horloge, évènements), **puis** décortiquer pas à pas le code étendu ci‑dessous (tir, ennemis, collisions, images, fond, cooldown…), et savoir comment l’étendre proprement.
+# 🎯 Modalités d’évaluation
+
+- 🗓️ **Date limite de rendu** : **18/11/2025 à 00h00 (dernier délai)**  
+- 📦 **Format attendu** : un **dossier compressé (.zip)** nommé **Prenom.Nom.zip**  
+- 📁 **Contenu du dossier** :
+  1. Un **seul fichier Python** contenant le jeu complet et **commenté** (`.py`)
+  2. Un dossier **`assets/`** avec toutes les **images** nécessaires au jeu
+  3. Un **fichier de documentation** (format .pdf) décrivant :
+     - Le **prompt** utilisé pour demander de l’aide à l’IA  
+     - Les **extraits de code** générés ou inspirés par l’IA  
+     - Une **explication** claire de **comment** ces éléments ont été **intégrés et adaptés** dans le code final
+
+> ⚠️ Le dossier doit être complet et exécutable tel quel.  
+> L’absence d’un des éléments ou une structure différente entraînera une pénalité.
+
+## 📂 Exemple de structure attendue
+
+```bash
+Prenom.Nom/
+│
+├── main.py                 # Fichier Python du jeu, complet et commenté
+│
+├── assets/                 # Dossier contenant toutes les images
+│   ├── Fond.jpg
+│   ├── PLayer.jpg
+│   └── vaisseau.jpg
+│
+└── utilisation_IA.md       # Fichier expliquant l'usage de l'IA (prompt, code, intégration)
+```
 
 ---
 
