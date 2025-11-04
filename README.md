@@ -7,7 +7,7 @@
 - 📧 **Envoi du projet** : le dossier `.zip` doit être envoyé **par mail** à l’adresse suivante :  
   👉 **louis.mougenot@edu.univ-fcomte.fr**
 - 📁 **Contenu obligatoire du dossier** :
-  1. Un **seul fichier Python** contenant le jeu complet et **commenté** (`.py`)
+  1. Un **seul fichier Python** contenant le jeu complet et **commenté** de type prenomnom.game
   2. Un dossier **`assets/`** contenant **toutes les images** nécessaires au jeu
   3. Un **fichier de documentation** (format libre : `.md`, `.pdf` ou `.txt`) détaillant :
      - Le **prompt** utilisé pour demander de l’aide à l’IA  
@@ -22,7 +22,7 @@
 ```bash
 Prenom.Nom/
 │
-├── main.py                 # Fichier Python du jeu, complet et commenté
+├── prenomnom.py                 # Fichier Python du jeu, complet et commenté
 │
 ├── assets/                 # Dossier contenant toutes les images
 │   ├── Fond.jpg
